@@ -145,7 +145,7 @@ $airlineOptions = [
 
         <?php if(isset($_GET['updated'])): ?>
             <?php if ($_GET['updated'] === '1'): ?>
-                <div class="alert-success"><i class="fa-solid fa-circle-check"></i> Shipment details updated successfully.</div>
+                <div class="alert-success"><i class="fa-solid fa-circle-check"></i> Transport details saved successfully. Booking is now ready for Coordinator Assignments.</div>
             <?php else: ?>
                 <div class="alert-success alert-error"><i class="fa-solid fa-triangle-exclamation"></i> Shipment update failed. Please check transport mode, required travel details, and status.</div>
             <?php endif; ?>
@@ -246,7 +246,8 @@ $airlineOptions = [
                         <div class="form-group">
                             <label>Shipment Status</label>
                             <select name="booking_status" required>
-                                <option value="FOR PICK-UP" selected>For Pick Up</option>
+                                <option value="PREPARING FOR TRANSIT" selected>Preparing for Transit</option>
+                                <option value="FOR PICK-UP">For Pick Up</option>
                             </select>
                         </div>
 
@@ -255,7 +256,7 @@ $airlineOptions = [
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label>Shipper Agent</label>
-                                    <select name="air_emp_ID" required>
+                                    <select name="air_emp_ID">
                                         <option value="">Select shipper agent</option>
                                         <?php foreach ($airAgents as $agent): ?>
                                             <option value="<?= h($agent['emp_ID']) ?>" <?= (int)($shipment['air_emp_ID'] ?? 0) === (int)$agent['emp_ID'] ? 'selected' : '' ?>>
@@ -264,12 +265,12 @@ $airlineOptions = [
                                         <?php endforeach; ?>
                                     </select>
                                     <?php if (empty($airAgents)): ?>
-                                        <small class="muted-text">No shipper agents found. Add employees with the Shipper Agent role first.</small>
+                                        <small class="muted-text">Optional: add employees with the Shipper Agent role to show names here. You can still save transport mode now.</small>
                                     <?php endif; ?>
                                 </div>
                                 <div class="form-group">
                                     <label>Airline</label>
-                                    <select name="airline" required>
+                                    <select name="airline">
                                         <option value="">Select airline</option>
                                         <?php foreach ($airlineOptions as $airline): ?>
                                             <option value="<?= h($airline) ?>" <?= ($shipment['airline_name'] ?? '') === $airline ? 'selected' : '' ?>>
@@ -280,7 +281,7 @@ $airlineOptions = [
                                 </div>
                                 <div class="form-group full">
                                     <label>Flight Reference Number</label>
-                                    <input type="text" name="flight_reference_number" value="<?= h($shipment['flight_reference_number'] ?? '') ?>" placeholder="Example: PR-1234 / AWB-00001" required>
+                                    <input type="text" name="flight_reference_number" value="<?= h($shipment['flight_reference_number'] ?? '') ?>" placeholder="Example: PR-1234 / AWB-00001">
                                 </div>
                             </div>
                         </section>
@@ -290,7 +291,7 @@ $airlineOptions = [
                             <div class="form-grid">
                                 <div class="form-group">
                                     <label>Driver</label>
-                                    <select name="driver_emp_ID" required>
+                                    <select name="driver_emp_ID">
                                         <option value="">Select driver</option>
                                         <?php foreach ($drivers as $driver): ?>
                                             <option value="<?= h($driver['emp_ID']) ?>" <?= (int)($shipment['driver_emp_ID'] ?? 0) === (int)$driver['emp_ID'] ? 'selected' : '' ?>>
@@ -301,7 +302,7 @@ $airlineOptions = [
                                 </div>
                                 <div class="form-group">
                                     <label>Vehicle Plate Number</label>
-                                    <select name="vehicle_ID" required>
+                                    <select name="vehicle_ID">
                                         <option value="">Select a vehicle plate number</option>
                                         <?php foreach ($vehicles as $vehicle): ?>
                                             <option value="<?= h($vehicle['vehicle_ID']) ?>" <?= (int)($shipment['vehicle_ID'] ?? 0) === (int)$vehicle['vehicle_ID'] ? 'selected' : '' ?>>
@@ -310,7 +311,7 @@ $airlineOptions = [
                                         <?php endforeach; ?>
                                     </select>
                                     <?php if (empty($vehicles)): ?>
-                                        <small class="muted-text">No vehicles are currently available. Add vehicles to the vehicle table before saving land shipment details.</small>
+                                        <small class="muted-text">Optional: add vehicles to the vehicle table to show plate numbers here. You can still save transport mode now.</small>
                                     <?php else: ?>
                                         <small>Vehicle plate number is loaded from the vehicle table.</small>
                                     <?php endif; ?>

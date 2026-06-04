@@ -1,9 +1,9 @@
 <?php
 require_once __DIR__ . '/../../helpers/auth.php';
 requirePermission('accounting_manage');
-require_once '../../../config/database.php';
-require_once '../../models/Payment.php';
-require_once '../../controllers/FinanceController.php';
+require_once __DIR__ . '/../../../config/database.php';
+require_once __DIR__ . '/../../models/Payment.php';
+require_once __DIR__ . '/../../controllers/FinanceController.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: finances.php');

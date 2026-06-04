@@ -5,6 +5,36 @@ class Payment {
 
     public function __construct($dbConnection) {
         $this->db = $dbConnection;
+        $this->ensureBillingColumns();
+    }
+
+    private function ensureBillingColumns() {
+        // Auto-add billing columns when the project is connected to an older DMAC database.
+        // Each ALTER is guarded and ignored on failure so the page still works with existing schemas.
+        $columns = [
+            'box_fee' => "ALTER TABLE payment ADD COLUMN box_fee DECIMAL(10,2) NOT NULL DEFAULT 0",
+            'pickup_fee' => "ALTER TABLE payment ADD COLUMN pickup_fee DECIMAL(10,2) NOT NULL DEFAULT 0",
+            'shipping_fee' => "ALTER TABLE payment ADD COLUMN shipping_fee DECIMAL(10,2) NOT NULL DEFAULT 0",
+            'head_price' => "ALTER TABLE payment ADD COLUMN head_price DECIMAL(10,2) NOT NULL DEFAULT 0",
+            'number_of_heads' => "ALTER TABLE payment ADD COLUMN number_of_heads INT NOT NULL DEFAULT 0",
+            'total_amount' => "ALTER TABLE payment ADD COLUMN total_amount DECIMAL(10,2) NOT NULL DEFAULT 0",
+            'payment_status' => "ALTER TABLE payment ADD COLUMN payment_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'",
+            'payment_reference' => "ALTER TABLE payment ADD COLUMN payment_reference VARCHAR(255) NULL",
+            'is_paid' => "ALTER TABLE payment ADD COLUMN is_paid TINYINT(1) NOT NULL DEFAULT 0",
+            'created_at' => "ALTER TABLE payment ADD COLUMN created_at DATETIME NULL",
+            'updated_at' => "ALTER TABLE payment ADD COLUMN updated_at DATETIME NULL"
+        ];
+
+        foreach ($columns as $column => $sql) {
+            try {
+                if (!$this->tableHasColumn('payment', $column)) {
+                    $this->db->exec($sql);
+                    $this->columnCache['payment.' . $column] = true;
+                }
+            } catch (Exception $e) {
+                error_log('Payment column check/add skipped for ' . $column . ': ' . $e->getMessage());
+            }
+        }
     }
 
     private function tableHasColumn($table, $column) {
@@ -330,12 +360,14 @@ class Payment {
             $existing->execute(['booking_id' => $bookingId]);
             $paymentId = $existing->fetchColumn();
 
-            $fields = [
-                'paymethod_ID' => $paymethodId,
-                'pay_amount' => $totalAmount,
-                'is_paid' => $isPaid,
-            ];
+            $fields = [];
 
+            // Use only columns that really exist in the imported database.
+            // This prevents the billing save from failing when an older DMAC
+            // database has no is_paid, payment_status, total_amount, or fee columns yet.
+            if ($this->tableHasColumn('payment', 'paymethod_ID')) $fields['paymethod_ID'] = $paymethodId;
+            if ($this->tableHasColumn('payment', 'pay_amount')) $fields['pay_amount'] = $totalAmount;
+            if ($this->tableHasColumn('payment', 'is_paid')) $fields['is_paid'] = $isPaid;
             if ($this->tableHasColumn('payment', 'box_fee')) $fields['box_fee'] = $boxFee;
             if ($this->tableHasColumn('payment', 'pickup_fee')) $fields['pickup_fee'] = $pickupFee;
             if ($this->tableHasColumn('payment', 'shipping_fee')) $fields['shipping_fee'] = $shippingFee;
@@ -345,11 +377,14 @@ class Payment {
             if ($this->tableHasColumn('payment', 'payment_status')) $fields['payment_status'] = $paymentStatus;
             if ($this->tableHasColumn('payment', 'payment_reference')) $fields['payment_reference'] = $paymentReference;
             if ($this->tableHasColumn('payment', 'updated_at')) $fields['updated_at'] = date('Y-m-d H:i:s');
+            if ($this->tableHasColumn('payment', 'created_at') && !$paymentId) $fields['created_at'] = date('Y-m-d H:i:s');
 
-            if ($paymentStatus === 'PAID') {
-                $fields['pay_date'] = date('Y-m-d');
-            } else {
-                $fields['pay_date'] = null;
+            if ($this->tableHasColumn('payment', 'pay_date')) {
+                $fields['pay_date'] = $paymentStatus === 'PAID' ? date('Y-m-d') : null;
+            }
+
+            if (empty($fields)) {
+                throw new Exception('No writable payment columns found.');
             }
 
             if ($paymentId) {

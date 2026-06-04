@@ -993,6 +993,7 @@ class Employee {
 
     public function updateShipmentManagement($bookingId, $status, $transportId, array $details = []) {
         $allowedStatuses = ['FOR PICK-UP','PROCESSING','PREPARING FOR TRANSIT','IN TRANSIT','DELIVERED/SHIPPED','CANCELLED'];
+        $bookingId = (int)$bookingId;
         $transportId = (int)$transportId;
         $shipmentType = $transportId === 1 ? 'AIR' : ($transportId === 2 ? 'LAND' : '');
 
@@ -1006,144 +1007,128 @@ class Employee {
             $airdetailsId = null;
             $landdetailsId = null;
 
-            if ($transportId === 1) {
-                if (!$this->tableExists('airdetails') || !$this->tableHasColumn('booking', 'airdetails_ID')) {
-                    $this->db->rollBack();
-                    return false;
-                }
-
+            // AIR details are now optional. If staff selected Air but has not yet added
+            // a shipper agent/reference, the booking can still be saved and moved forward.
+            if ($transportId === 1 && $this->tableExists('airdetails')) {
                 $airEmpId = (int)($details['air_emp_ID'] ?? 0);
                 $airline = trim((string)($details['airline'] ?? ''));
                 $flightReference = trim((string)($details['flight_reference_number'] ?? ''));
 
-                if ($airEmpId <= 0 || $airline === '' || $flightReference === '') {
-                    $this->db->rollBack();
-                    return false;
-                }
-
-                $employeeCheck = $this->db->prepare("SELECT COUNT(*)
-                    FROM employee e
-                    JOIN emprole er ON e.emp_ID = er.emp_ID
-                    JOIN roles r ON er.role_ID = r.role_ID
-                    WHERE e.emp_ID = :emp_id
-                      AND e.deleted_at IS NULL
-                      AND e.account_status = 'approved'
-                      AND LOWER(r.role) = 'shipper agent'");
-                $employeeCheck->execute(['emp_id' => $airEmpId]);
-                if ((int)$employeeCheck->fetchColumn() === 0) {
-                    $this->db->rollBack();
-                    return false;
-                }
-
-                $existingStmt = $this->db->prepare("SELECT airdetails_ID FROM booking WHERE booking_ID = :booking_id LIMIT 1");
-                $existingStmt->execute(['booking_id' => $bookingId]);
-                $airdetailsId = $existingStmt->fetchColumn();
-
-                if ($airdetailsId) {
-                    $checkStmt = $this->db->prepare("SELECT 1 FROM airdetails WHERE airdetails_ID = :id LIMIT 1");
-                    $checkStmt->execute(['id' => $airdetailsId]);
-                    if ($checkStmt->fetchColumn()) {
-                        $stmt = $this->db->prepare("UPDATE airdetails
-                            SET transport_ID = 1,
-                                emp_ID = :emp_id,
-                                airlines = :airline,
-                                airdetails_reference = :reference
-                            WHERE airdetails_ID = :id");
-                        $stmt->execute([
-                            'emp_id' => $airEmpId,
-                            'airline' => $airline,
-                            'reference' => $flightReference,
-                            'id' => $airdetailsId
-                        ]);
-                    } else {
-                        $airdetailsId = null;
+                if ($airEmpId > 0 || $airline !== '' || $flightReference !== '') {
+                    if ($airEmpId <= 0) {
+                        $airEmpId = null;
                     }
-                }
 
-                if (!$airdetailsId) {
-                    $stmt = $this->db->prepare("INSERT INTO airdetails (transport_ID, emp_ID, airlines, airdetails_reference)
-                        VALUES (1, :emp_id, :airline, :reference)");
-                    $stmt->execute([
-                        'emp_id' => $airEmpId,
-                        'airline' => $airline,
-                        'reference' => $flightReference
-                    ]);
-                    $airdetailsId = (int)$this->db->lastInsertId();
+                    if ($airEmpId !== null && $this->tableHasColumn('booking', 'airdetails_ID')) {
+                        $existingStmt = $this->db->prepare("SELECT airdetails_ID FROM booking WHERE booking_ID = :booking_id LIMIT 1");
+                        $existingStmt->execute(['booking_id' => $bookingId]);
+                        $airdetailsId = $existingStmt->fetchColumn();
+                    }
+
+                    $cols = [];
+                    $vals = [];
+                    $params = [];
+
+                    if ($this->tableHasColumn('airdetails', 'transport_ID')) {
+                        $cols[] = 'transport_ID';
+                        $vals[] = ':transport_id';
+                        $params['transport_id'] = 1;
+                    }
+                    if ($this->tableHasColumn('airdetails', 'emp_ID') && $airEmpId !== null) {
+                        $cols[] = 'emp_ID';
+                        $vals[] = ':emp_id';
+                        $params['emp_id'] = $airEmpId;
+                    }
+                    if ($this->tableHasColumn('airdetails', 'airlines')) {
+                        $cols[] = 'airlines';
+                        $vals[] = ':airline';
+                        $params['airline'] = $airline;
+                    }
+                    if ($this->tableHasColumn('airdetails', 'airdetails_reference')) {
+                        $cols[] = 'airdetails_reference';
+                        $vals[] = ':reference';
+                        $params['reference'] = $flightReference;
+                    }
+
+                    if (!empty($cols)) {
+                        if ($airdetailsId) {
+                            $setParts = [];
+                            foreach ($cols as $idx => $col) {
+                                $setParts[] = "$col = " . $vals[$idx];
+                            }
+                            $params['id'] = $airdetailsId;
+                            $stmt = $this->db->prepare("UPDATE airdetails SET " . implode(', ', $setParts) . " WHERE airdetails_ID = :id");
+                            $stmt->execute($params);
+                        } else {
+                            $stmt = $this->db->prepare("INSERT INTO airdetails (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")");
+                            $stmt->execute($params);
+                            $airdetailsId = (int)$this->db->lastInsertId();
+                        }
+                    }
                 }
             }
 
-            if ($transportId === 2) {
-                if (!$this->tableExists('landdetails') || !$this->tableHasColumn('booking', 'landdetails_ID')) {
-                    $this->db->rollBack();
-                    return false;
-                }
-
+            // LAND details are also optional so the Set Transport button no longer fails
+            // when the vehicle/driver tables are empty. If selected, valid IDs are saved.
+            if ($transportId === 2 && $this->tableExists('landdetails')) {
                 $driverEmpId = (int)($details['driver_emp_ID'] ?? 0);
                 $vehicleId = (int)($details['vehicle_ID'] ?? 0);
 
-                if ($driverEmpId <= 0 || $vehicleId <= 0) {
-                    $this->db->rollBack();
-                    return false;
-                }
-
-                $driverStmt = $this->db->prepare("SELECT COUNT(*) FROM employee WHERE emp_ID = :emp_id AND deleted_at IS NULL AND account_status = 'approved'");
-                $driverStmt->execute(['emp_id' => $driverEmpId]);
-                if ((int)$driverStmt->fetchColumn() === 0) {
-                    $this->db->rollBack();
-                    return false;
-                }
-
-                $vehicleStmt = $this->db->prepare("SELECT COUNT(*) FROM vehicle WHERE vehicle_ID = :vehicle_id");
-                $vehicleStmt->execute(['vehicle_id' => $vehicleId]);
-                if ((int)$vehicleStmt->fetchColumn() === 0) {
-                    $this->db->rollBack();
-                    return false;
-                }
-
-                $existingStmt = $this->db->prepare("SELECT landdetails_ID FROM booking WHERE booking_ID = :booking_id LIMIT 1");
-                $existingStmt->execute(['booking_id' => $bookingId]);
-                $landdetailsId = $existingStmt->fetchColumn();
-
-                if ($landdetailsId) {
-                    $checkStmt = $this->db->prepare("SELECT 1 FROM landdetails WHERE landdetails_ID = :id LIMIT 1");
-                    $checkStmt->execute(['id' => $landdetailsId]);
-                    if ($checkStmt->fetchColumn()) {
-                        $stmt = $this->db->prepare("UPDATE landdetails
-                            SET transport_ID = 2,
-                                vehicle_ID = :vehicle_id,
-                                emp_ID = :emp_id
-                            WHERE landdetails_ID = :id");
-                        $stmt->execute([
-                            'vehicle_id' => $vehicleId,
-                            'emp_id' => $driverEmpId,
-                            'id' => $landdetailsId
-                        ]);
-                    } else {
-                        $landdetailsId = null;
+                if ($driverEmpId > 0 || $vehicleId > 0) {
+                    if ($this->tableHasColumn('booking', 'landdetails_ID')) {
+                        $existingStmt = $this->db->prepare("SELECT landdetails_ID FROM booking WHERE booking_ID = :booking_id LIMIT 1");
+                        $existingStmt->execute(['booking_id' => $bookingId]);
+                        $landdetailsId = $existingStmt->fetchColumn();
                     }
-                }
 
-                if (!$landdetailsId) {
-                    $stmt = $this->db->prepare("INSERT INTO landdetails (transport_ID, vehicle_ID, emp_ID)
-                        VALUES (2, :vehicle_id, :emp_id)");
-                    $stmt->execute([
-                        'vehicle_id' => $vehicleId,
-                        'emp_id' => $driverEmpId
-                    ]);
-                    $landdetailsId = (int)$this->db->lastInsertId();
+                    $cols = [];
+                    $vals = [];
+                    $params = [];
+
+                    if ($this->tableHasColumn('landdetails', 'transport_ID')) {
+                        $cols[] = 'transport_ID';
+                        $vals[] = ':transport_id';
+                        $params['transport_id'] = 2;
+                    }
+                    if ($this->tableHasColumn('landdetails', 'vehicle_ID') && $vehicleId > 0) {
+                        $cols[] = 'vehicle_ID';
+                        $vals[] = ':vehicle_id';
+                        $params['vehicle_id'] = $vehicleId;
+                    }
+                    if ($this->tableHasColumn('landdetails', 'emp_ID') && $driverEmpId > 0) {
+                        $cols[] = 'emp_ID';
+                        $vals[] = ':emp_id';
+                        $params['emp_id'] = $driverEmpId;
+                    }
+
+                    if (!empty($cols)) {
+                        if ($landdetailsId) {
+                            $setParts = [];
+                            foreach ($cols as $idx => $col) {
+                                $setParts[] = "$col = " . $vals[$idx];
+                            }
+                            $params['id'] = $landdetailsId;
+                            $stmt = $this->db->prepare("UPDATE landdetails SET " . implode(', ', $setParts) . " WHERE landdetails_ID = :id");
+                            $stmt->execute($params);
+                        } else {
+                            $stmt = $this->db->prepare("INSERT INTO landdetails (" . implode(', ', $cols) . ") VALUES (" . implode(', ', $vals) . ")");
+                            $stmt->execute($params);
+                            $landdetailsId = (int)$this->db->lastInsertId();
+                        }
+                    }
                 }
             }
 
-            $sets = [
-                "booking_status = :status",
-                "booking_enddate = IF(:is_done = 1, CURDATE(), booking_enddate)"
-            ];
-
+            $sets = ["booking_status = :status"];
             $params = [
                 'status' => $status,
-                'is_done' => $status === 'DELIVERED/SHIPPED' ? 1 : 0,
                 'booking_id' => $bookingId
             ];
+
+            if ($this->tableHasColumn('booking', 'booking_enddate')) {
+                $sets[] = "booking_enddate = IF(:is_done = 1, CURDATE(), booking_enddate)";
+                $params['is_done'] = $status === 'DELIVERED/SHIPPED' ? 1 : 0;
+            }
 
             if ($this->tableHasColumn('booking', 'transport_ID')) {
                 $sets[] = "transport_ID = :transport_id";
@@ -1173,7 +1158,7 @@ class Employee {
             return true;
         } catch (Exception $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
-            error_log($e->getMessage());
+            error_log('Shipment management update failed: ' . $e->getMessage());
             return false;
         }
     }

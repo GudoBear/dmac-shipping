@@ -5817,3 +5817,14 @@ textarea {
 
 /* DMAC Terms and Insurance tabbed agreement */
 .terms-layout-box{display:grid;grid-template-columns:260px 1fr;gap:18px;padding:18px;background:#f8fcfa;border:1px solid #dbe9e1;border-radius:20px}.terms-sidebar{display:flex;flex-direction:column;gap:10px}.terms-nav{border:1px solid #d9e8df;background:#fff;color:#0b3d2b;border-radius:14px;padding:14px 16px;font-weight:900;text-align:left;display:flex;align-items:center;gap:10px;cursor:pointer}.terms-nav span{width:28px;height:28px;border-radius:50%;display:inline-grid;place-items:center;background:#e7f6ed;color:#0f7a49;font-weight:900}.terms-nav.active{background:#0b3d2b;color:#fff;border-color:#0b3d2b;box-shadow:0 10px 24px rgba(11,61,43,.16)}.terms-nav.active span{background:#fff;color:#0b3d2b}.terms-content{min-width:0}.agreement-page{display:none}.agreement-page.active{display:block}.agreement-text{max-height:430px;overflow:auto;background:#fff;border:1px solid #e1ebe5;border-radius:16px;padding:20px;margin:14px 0}.agreement-text h1{font-size:24px;font-weight:950;color:#0b3d2b;margin:0 0 8px}.agreement-text h2{font-size:18px;font-weight:900;color:#0f5132;margin:0 0 16px}.agreement-text h3{font-size:16px;font-weight:950;color:#083b2a;margin:22px 0 10px}.agreement-text h4{font-size:14px;font-weight:950;color:#0f5132;margin:14px 0 8px}.terms-list,.area-list{padding-left:22px;margin-bottom:14px}.terms-list li,.area-list li{margin-bottom:7px;line-height:1.5;font-weight:650;color:#23362c}.area-list{columns:2}.agreement-text::-webkit-scrollbar{width:10px}.agreement-text::-webkit-scrollbar-thumb{background:#b7d6c5;border-radius:999px}.agreement-text::-webkit-scrollbar-track{background:#f1f8f4;border-radius:999px}@media(max-width:900px){.terms-layout-box{grid-template-columns:1fr}.terms-sidebar{display:grid;grid-template-columns:1fr 1fr}.area-list{columns:1}}@media(max-width:560px){.terms-sidebar{grid-template-columns:1fr}.agreement-text{max-height:360px;padding:16px}}
+
+
+/* ===== Fix custom billing modal transparency/overlap =====
+   Bootstrap also uses .modal-backdrop.show and sets opacity. This custom modal
+   contains the form, so opacity must stay 1 or the form becomes transparent. */
+#billingModal.modal-backdrop.show{display:flex!important;opacity:1!important;}
+#billingModal .billing-modal{opacity:1!important;position:relative;z-index:10000;}
+#billingModal .modal-head{position:static!important;padding:0!important;border-bottom:0!important;background:transparent!important;margin-bottom:18px!important;}
+#billingModal .billing-form{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important;}
+#billingModal .form-full,#billingModal .air-note,#billingModal .total-box,#billingModal .modal-actions{grid-column:1/-1!important;}
+@media(max-width:700px){#billingModal .billing-form{grid-template-columns:1fr!important;}}

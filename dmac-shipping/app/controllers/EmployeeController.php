@@ -1,5 +1,5 @@
-﻿<?php
-require_once __DIR__ . '/../../models/Employee.php';
+<?php
+require_once __DIR__ . '/../models/Employee.php';
 
 class EmployeeController
 {
@@ -26,6 +26,17 @@ class EmployeeController
     {
         $roleIds = array_filter(array_map('intval', $roleIds), fn($id) => $id > 0);
         return array_values(array_unique($roleIds));
+    }
+
+
+    private function normalizePermissionIds($permissionIds): array
+    {
+        if (!is_array($permissionIds)) {
+            return [];
+        }
+
+        $permissionIds = array_filter(array_map('intval', $permissionIds), fn($id) => $id > 0);
+        return array_values(array_unique($permissionIds));
     }
 
     private function getCoordinatorRoleId(): int
@@ -87,7 +98,7 @@ class EmployeeController
             'email' => $email,
             'password' => password_hash($password, PASSWORD_BCRYPT),
             'role_ids' => $roleIds,
-            'permission_ids' => is_array($input['permissions'] ?? []) ? array_values(array_unique(array_map('intval', $input['permissions']))) : [],
+            'permission_ids' => $this->normalizePermissionIds($input['permissions'] ?? []),
             'account_status' => 'approved',
             'is_coordinator' => $isCoordinator ? 1 : 0,
         ];
@@ -110,7 +121,7 @@ class EmployeeController
         $status = trim($input['account_status'] ?? 'approved');
         $rawRoleIds = $input['roles'] ?? [];
         $roleIds = $this->normalizeRoleIds(is_array($rawRoleIds) ? $rawRoleIds : []);
-        $permissionIds = is_array($input['permissions'] ?? []) ? array_values(array_unique(array_map('intval', $input['permissions']))) : [];
+        $permissionIds = $this->normalizePermissionIds($input['permissions'] ?? []);
 
         if ($empId <= 0 || $firstname === '' || $lastname === '' || $contact === '' || $deptId <= 0 || empty($roleIds)) {
             return ['success' => false, 'error' => 'missing'];

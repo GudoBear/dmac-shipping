@@ -1,5 +1,5 @@
-﻿<?php
-require_once __DIR__ . '/../../models/Payment.php';
+<?php
+require_once __DIR__ . '/../models/Payment.php';
 
 class FinanceController
 {
