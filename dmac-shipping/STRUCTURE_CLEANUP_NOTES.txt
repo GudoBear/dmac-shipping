@@ -1,0 +1,10 @@
+DMAC structure cleanup applied:
+
+1. All local CSS was combined into public/css/all.css.
+2. All local JavaScript was combined into public/js/all.js.
+3. Inline <style> and <script> blocks from PHP views were moved into the shared files.
+4. Client sidebar links were checked; Feedback is visible on client Dashboard, Booking, Active Orders, Billing, Feedback, and Settings pages.
+5. app/helpers/client_nav.php was added for reusable client sidebar rendering in future refactors.
+6. app/views/templates and app/helpers/dmac_layout.php remain available for reusable PHP structure.
+
+External CDN files for Bootstrap and Font Awesome remain linked separately.

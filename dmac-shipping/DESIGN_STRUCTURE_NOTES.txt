@@ -1,0 +1,21 @@
+DMAC Design + Structure Update
+==============================
+
+This update deepens the DMAC frontend design inside dmac-shipping while keeping the PHP backend logic intact.
+
+Applied design changes:
+- More exact dark green DMAC sidebar style.
+- Sidebar grouped into Main Menu, Management, Operations, Accounting, and General.
+- Rounded white topbars, panels, cards, forms, modals, and tables.
+- Bootstrap-friendly styling on top of the existing dashboard.css.
+- Mobile sidebar toggle added through public/js/dmac-ui.js.
+- DMAC-style status badges, buttons, empty states, and table hover states.
+
+Reusable structure added:
+- app/views/templates/header.php
+- app/views/templates/footer.php
+- app/views/templates/sidebar.php
+- app/helpers/dmac_layout.php
+- app/models/BaseModel.php
+
+The reusable PHP files are added for future cleanup/refactoring. Current pages still work without needing a risky full rewrite.
